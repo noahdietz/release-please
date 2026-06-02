@@ -55,6 +55,7 @@ interface GitHubArgs {
   local?: boolean;
   localPath?: string;
   localCloneDepth?: number;
+  localMode?: boolean;
 
   // deprecated in favor of targetBranch
   defaultBranch?: string;
@@ -207,8 +208,21 @@ function gitHubOptions(yargs: yargs.Argv): yargs.Argv {
       describe: 'Depth of local clone. Defaults to the entire repo.',
       type: 'number',
     })
+    .option('local-mode', {
+      describe:
+        'Write calculated release changes directly to the local repository instead of opening a pull request',
+      type: 'boolean',
+      default: false,
+    })
     .middleware(_argv => {
-      const argv = _argv as GitHubArgs;
+      const argv = _argv as GitHubArgs & { 'local-mode'?: boolean };
+      if (argv.localMode || argv['local-mode']) {
+        argv.local = true;
+        argv.localMode = true;
+        if (!argv.localPath) {
+          argv.localPath = '.';
+        }
+      }
       // allow secrets to be loaded from file path
       // rather than being passed directly to the bin.
       if (argv.token) argv.token = coerceOption(argv.token);
@@ -561,6 +575,15 @@ const createReleasePullRequestCommand: yargs.CommandModule<
           }
         }
       }
+    } else if (argv.localMode) {
+      const pullRequests = await manifest.buildPullRequests();
+      for (const pullRequest of pullRequests) {
+        const changes = await github.buildChangeSet(
+          pullRequest.updates,
+          targetBranch
+        );
+        await (github as LocalGitHub).writeChangesToDisk(changes);
+      }
     } else {
       const pullRequestNumbers = await manifest.createPullRequests();
       console.log(pullRequestNumbers);
@@ -806,6 +829,16 @@ const bootstrapCommand: yargs.CommandModule<{}, BootstrapArgs> = {
           }
         }
       }
+    } else if (argv.localMode) {
+      const pullRequest = await bootstrapper.buildPullRequest(
+        path,
+        releaserConfig
+      );
+      const changes = await github.buildChangeSet(
+        pullRequest.updates,
+        targetBranch
+      );
+      await (github as LocalGitHub).writeChangesToDisk(changes);
     } else {
       const pullRequest = await bootstrapper.bootstrap(path, releaserConfig);
       console.log(pullRequest);
@@ -848,6 +881,7 @@ async function buildGitHub(argv: GitHubArgs): Promise<Scm> {
       graphqlUrl: argv.graphqlUrl,
       localRepoPath: argv.localPath,
       cloneDepth: argv.localCloneDepth,
+      localMode: argv.localMode,
     });
     return localGitHub;
   } else {

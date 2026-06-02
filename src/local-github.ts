@@ -59,6 +59,7 @@ import {logger as defaultLogger} from './util/logger';
 export interface LocalGitHubCreateOptions extends GitHubCreateOptions {
   cloneDepth?: number;
   localRepoPath?: string;
+  localMode?: boolean;
 }
 
 /**
@@ -115,21 +116,25 @@ export class LocalGitHub implements Scm {
         logger.info(`Using existing local repository at ${repoDir}...`);
       }
 
-      const branch = gitHubApi.repository.defaultBranch;
-      const fetchArgs = ['fetch', 'origin'];
-      if (options.cloneDepth) {
-        fetchArgs.push('--depth', options.cloneDepth.toString());
+      if (!options.localMode) {
+        const branch = gitHubApi.repository.defaultBranch;
+        const fetchArgs = ['fetch', 'origin'];
+        if (options.cloneDepth) {
+          fetchArgs.push('--depth', options.cloneDepth.toString());
+        }
+        logger.debug(`Executing: git ${fetchArgs.join(' ')}`);
+        await execFile('git', fetchArgs, {cwd: repoDir});
+
+        logger.debug(`Executing: git checkout ${branch}`);
+        await execFile('git', ['checkout', branch], {cwd: repoDir});
+
+        logger.debug(`Executing: git reset --hard origin/${branch}`);
+        await execFile('git', ['reset', '--hard', `origin/${branch}`], {
+          cwd: repoDir,
+        });
+      } else {
+        logger.info('Running in local-mode. Skipping repository fetch and reset.');
       }
-      logger.debug(`Executing: git ${fetchArgs.join(' ')}`);
-      await execFile('git', fetchArgs, {cwd: repoDir});
-
-      logger.debug(`Executing: git checkout ${branch}`);
-      await execFile('git', ['checkout', branch], {cwd: repoDir});
-
-      logger.debug(`Executing: git reset --hard origin/${branch}`);
-      await execFile('git', ['reset', '--hard', `origin/${branch}`], {
-        cwd: repoDir,
-      });
     } else {
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'release-please-'));
       logger.info(`Cloning repository to ${tempDir}...`);
@@ -961,6 +966,31 @@ export class LocalGitHub implements Scm {
       }
     }
     return changes;
+  }
+
+  /**
+   * Write changeset changes to local filesystem files.
+   *
+   * @param {ScmChangeSet} changes The changes to write
+   */
+  async writeChangesToDisk(changes: ScmChangeSet): Promise<void> {
+    for (const [filePath, change] of changes.entries()) {
+      const fullPath = path.join(this.cloneDir, filePath);
+      if (change.content === null) {
+        try {
+          await fs.promises.unlink(fullPath);
+          this.logger.info(`Deleted local file: ${filePath}`);
+        } catch (err) {
+          if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        }
+      } else {
+        await fs.promises.mkdir(path.dirname(fullPath), {recursive: true});
+        await fs.promises.writeFile(fullPath, change.content, {
+          mode: change.mode ? parseInt(change.mode, 8) : undefined,
+        });
+        this.logger.info(`Wrote changes to local file: ${filePath}`);
+      }
+    }
   }
 }
 
