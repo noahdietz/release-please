@@ -34,6 +34,10 @@ import {createPatch} from 'diff';
 import {Scm} from '../scm';
 import {LocalGitHub} from '../local-github';
 
+import * as os from 'os';
+import * as fs from 'fs';
+import * as pathNode from 'path';
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const parseGithubRepoUrl = require('parse-github-repo-url');
 
@@ -583,6 +587,12 @@ const createReleasePullRequestCommand: yargs.CommandModule<
           targetBranch
         );
         await (github as LocalGitHub).writeChangesToDisk(changes);
+        const tempPath = pathNode.join(
+          os.tmpdir(),
+          `release-please-${pullRequest.headRefName}.md`
+        );
+        await fs.promises.writeFile(tempPath, pullRequest.body.toString());
+        logger.info(`Wrote pull request body to: ${tempPath}`);
       }
     } else {
       const pullRequestNumbers = await manifest.createPullRequests();
@@ -839,6 +849,12 @@ const bootstrapCommand: yargs.CommandModule<{}, BootstrapArgs> = {
         targetBranch
       );
       await (github as LocalGitHub).writeChangesToDisk(changes);
+      const tempPath = pathNode.join(
+        os.tmpdir(),
+        `release-please-${pullRequest.headBranchName}.md`
+      );
+      await fs.promises.writeFile(tempPath, pullRequest.body.toString());
+      logger.info(`Wrote bootstrap pull request body to: ${tempPath}`);
     } else {
       const pullRequest = await bootstrapper.bootstrap(path, releaserConfig);
       console.log(pullRequest);
