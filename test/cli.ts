@@ -722,7 +722,11 @@ describe('CLI', () => {
 
         sinon.assert.calledOnce(buildPullRequestsStub);
         sinon.assert.calledOnce(fakeLocalGitHub.writeChangesToDisk);
-        sinon.assert.calledOnce(writeFileStub);
+        sinon.assert.calledOnceWithExactly(
+          writeFileStub,
+          sinon.match.string,
+          'Title: fake title\n\nfake body'
+        );
       });
     });
     describe('with release type options', () => {
@@ -1677,7 +1681,11 @@ describe('CLI', () => {
       });
 
       sinon.assert.calledOnce(fakeLocalGitHub.writeChangesToDisk);
-      sinon.assert.calledOnce(writeFileStub);
+      sinon.assert.calledOnceWithExactly(
+        writeFileStub,
+        sinon.match.string,
+        'Title: chore: bootstrap releases for path: .\n\nConfiguring release-please for path: .'
+      );
     });
   });
 

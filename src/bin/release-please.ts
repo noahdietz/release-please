@@ -591,7 +591,8 @@ const createReleasePullRequestCommand: yargs.CommandModule<
           os.tmpdir(),
           `release-please-${pullRequest.headRefName}.md`
         );
-        await fs.promises.writeFile(tempPath, pullRequest.body.toString());
+        const fileContent = `Title: ${pullRequest.title.toString()}\n\n${pullRequest.body.toString()}`;
+        await fs.promises.writeFile(tempPath, fileContent);
         logger.info(`Wrote pull request body to: ${tempPath}`);
       }
     } else {
@@ -853,7 +854,8 @@ const bootstrapCommand: yargs.CommandModule<{}, BootstrapArgs> = {
         os.tmpdir(),
         `release-please-${pullRequest.headBranchName}.md`
       );
-      await fs.promises.writeFile(tempPath, pullRequest.body.toString());
+      const fileContent = `Title: ${pullRequest.title.toString()}\n\n${pullRequest.body.toString()}`;
+      await fs.promises.writeFile(tempPath, fileContent);
       logger.info(`Wrote bootstrap pull request body to: ${tempPath}`);
     } else {
       const pullRequest = await bootstrapper.bootstrap(path, releaserConfig);
