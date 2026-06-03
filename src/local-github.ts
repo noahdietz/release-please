@@ -976,11 +976,13 @@ export class LocalGitHub implements Scm {
   async writeChangesToDisk(changes: ScmChangeSet): Promise<void> {
     for (const [filePath, change] of changes.entries()) {
       const fullPath = path.join(this.cloneDir, filePath);
+      // A content of null indicates that this file should be deleted as part of the changeset.
       if (change.content === null) {
         try {
           await fs.promises.unlink(fullPath);
           this.logger.info(`Deleted local file: ${filePath}`);
         } catch (err) {
+          // If the file is already missing (e.g. was deleted previously), ignore the error.
           if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
         }
       } else {
