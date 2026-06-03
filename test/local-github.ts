@@ -15,6 +15,10 @@
 import {expect} from 'chai';
 import {describe, it, before} from 'mocha';
 import {LocalGitHub} from '../src/local-github';
+import {ScmChangeSet} from '../src/scm';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 describe('LocalGitHub', () => {
   let localGitHub: LocalGitHub;
@@ -161,6 +165,84 @@ describe('LocalGitHub', () => {
       expect(tags.length).to.be.lessThanOrEqual(5);
       expect(tags[0].name).to.not.be.undefined;
       expect(tags[0].sha).to.not.be.undefined;
+    });
+  });
+
+  describe('writeChangesToDisk', () => {
+    it('writes changes to disk', async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'release-please-test-')
+      );
+      const testLocalGitHub = new LocalGitHub(
+        {owner: 'foo', repo: 'bar', defaultBranch: 'main'},
+        {} as any,
+        tempDir
+      );
+
+      const changes: ScmChangeSet = new Map([
+        [
+          'file1.txt',
+          {
+            content: 'hello world',
+            originalContent: '',
+            mode: '100644' as const,
+          },
+        ],
+        [
+          'subdir/file2.txt',
+          {
+            content: 'hello subdir',
+            originalContent: '',
+            mode: '100755' as const,
+          },
+        ],
+      ]);
+
+      await testLocalGitHub.writeChangesToDisk(changes);
+
+      expect(
+        await fs.promises.readFile(path.join(tempDir, 'file1.txt'), 'utf8')
+      ).to.equal('hello world');
+      expect(
+        await fs.promises.readFile(path.join(tempDir, 'subdir/file2.txt'), 'utf8')
+      ).to.equal('hello subdir');
+
+      await fs.promises.rm(tempDir, {recursive: true, force: true});
+    });
+
+    it('deletes files if content is null', async () => {
+      const tempDir = await fs.promises.mkdtemp(
+        path.join(os.tmpdir(), 'release-please-test-')
+      );
+      const testLocalGitHub = new LocalGitHub(
+        {owner: 'foo', repo: 'bar', defaultBranch: 'main'},
+        {} as any,
+        tempDir
+      );
+
+      await fs.promises.writeFile(path.join(tempDir, 'file-to-delete.txt'), 'exist');
+
+      const changes: ScmChangeSet = new Map([
+        [
+          'file-to-delete.txt',
+          {
+            content: null,
+            originalContent: 'exist',
+            mode: '100644' as const,
+          },
+        ],
+      ]);
+
+      await testLocalGitHub.writeChangesToDisk(changes);
+
+      try {
+        await fs.promises.stat(path.join(tempDir, 'file-to-delete.txt'));
+        throw new Error('Expected file to be deleted');
+      } catch (err) {
+        expect((err as NodeJS.ErrnoException).code).to.equal('ENOENT');
+      }
+
+      await fs.promises.rm(tempDir, {recursive: true, force: true});
     });
   });
 });

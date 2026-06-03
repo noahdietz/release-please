@@ -24,6 +24,8 @@ import {
 } from '../src/manifest';
 import snapshot = require('snap-shot-it');
 import {GitHub} from '../src/github';
+import {LocalGitHub} from '../src/local-github';
+import * as fs from 'fs';
 import {ParseCallback} from 'yargs';
 
 const sandbox = sinon.createSandbox();
@@ -53,6 +55,10 @@ describe('CLI', () => {
   let fakeGitHub: GitHub;
   let fakeManifest: Manifest;
   let gitHubCreateStub: sinon.SinonStub;
+  let fakeLocalGitHub: any;
+  let localGitHubCreateStub: sinon.SinonStub;
+  let writeFileStub: sinon.SinonStub;
+
   beforeEach(async () => {
     fakeGitHub = await GitHub.create({
       owner: 'googleapis',
@@ -61,6 +67,21 @@ describe('CLI', () => {
     });
     fakeManifest = new Manifest(fakeGitHub, 'main', {}, {});
     gitHubCreateStub = sandbox.stub(GitHub, 'create').resolves(fakeGitHub);
+
+    fakeLocalGitHub = {
+      repository: {
+        owner: 'googleapis',
+        repo: 'release-please-cli',
+        defaultBranch: 'main',
+      },
+      buildChangeSet: sandbox.stub().resolves(new Map()),
+      writeChangesToDisk: sandbox.stub().resolves(),
+    };
+    localGitHubCreateStub = sandbox
+      .stub(LocalGitHub, 'create')
+      .resolves(fakeLocalGitHub);
+
+    writeFileStub = sandbox.stub(fs.promises, 'writeFile').resolves();
   });
   afterEach(() => {
     sandbox.restore();
@@ -665,6 +686,43 @@ describe('CLI', () => {
           undefined
         );
         sinon.assert.calledOnce(buildPullRequestsStub);
+      });
+
+      it('handles --local-mode', async () => {
+        const buildPullRequestsStub = sandbox
+          .stub(fakeManifest, 'buildPullRequests')
+          .resolves([
+            {
+              title: 'fake title',
+              body: 'fake body',
+              headBranchName: 'head-branch-name',
+              baseBranchName: 'base-branch-name',
+              number: 123,
+              files: [],
+              labels: [],
+              updates: [],
+              headRefName: 'head-branch-name',
+            } as any,
+          ]);
+
+        await parser.parseAsync(
+          'release-pr --repo-url=googleapis/release-please-cli --local-mode'
+        );
+
+        sinon.assert.calledOnceWithExactly(localGitHubCreateStub, {
+          owner: 'googleapis',
+          repo: 'release-please-cli',
+          token: undefined,
+          apiUrl: 'https://api.github.com',
+          graphqlUrl: 'https://api.github.com',
+          localRepoPath: '.',
+          cloneDepth: undefined,
+          localMode: true,
+        });
+
+        sinon.assert.calledOnce(buildPullRequestsStub);
+        sinon.assert.calledOnce(fakeLocalGitHub.writeChangesToDisk);
+        sinon.assert.calledOnce(writeFileStub);
       });
     });
     describe('with release type options', () => {
@@ -1600,6 +1658,26 @@ describe('CLI', () => {
         sinon.match.array,
         {}
       );
+    });
+
+    it('handles --local-mode', async () => {
+      await parser.parseAsync(
+        'bootstrap --repo-url=googleapis/release-please-cli --release-type=java --local-mode'
+      );
+
+      sinon.assert.calledOnceWithExactly(localGitHubCreateStub, {
+        owner: 'googleapis',
+        repo: 'release-please-cli',
+        token: undefined,
+        apiUrl: 'https://api.github.com',
+        graphqlUrl: 'https://api.github.com',
+        localRepoPath: '.',
+        cloneDepth: undefined,
+        localMode: true,
+      });
+
+      sinon.assert.calledOnce(fakeLocalGitHub.writeChangesToDisk);
+      sinon.assert.calledOnce(writeFileStub);
     });
   });
 
