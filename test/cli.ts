@@ -688,7 +688,7 @@ describe('CLI', () => {
         sinon.assert.calledOnce(buildPullRequestsStub);
       });
 
-      it('handles --local-mode', async () => {
+      it('handles --local-write', async () => {
         const buildPullRequestsStub = sandbox
           .stub(fakeManifest, 'buildPullRequests')
           .resolves([
@@ -706,7 +706,7 @@ describe('CLI', () => {
           ]);
 
         await parser.parseAsync(
-          'release-pr --repo-url=googleapis/release-please-cli --local-mode'
+          'release-pr --repo-url=googleapis/release-please-cli --local-write'
         );
 
         sinon.assert.calledOnceWithExactly(localGitHubCreateStub, {
@@ -717,7 +717,7 @@ describe('CLI', () => {
           graphqlUrl: 'https://api.github.com',
           localRepoPath: '.',
           cloneDepth: undefined,
-          localMode: true,
+          localWrite: true,
         });
 
         sinon.assert.calledOnce(buildPullRequestsStub);
@@ -1660,9 +1660,9 @@ describe('CLI', () => {
       );
     });
 
-    it('handles --local-mode', async () => {
+    it('handles --local-write', async () => {
       await parser.parseAsync(
-        'bootstrap --repo-url=googleapis/release-please-cli --release-type=java --local-mode'
+        'bootstrap --repo-url=googleapis/release-please-cli --release-type=java --local-write'
       );
 
       sinon.assert.calledOnceWithExactly(localGitHubCreateStub, {
@@ -1673,7 +1673,7 @@ describe('CLI', () => {
         graphqlUrl: 'https://api.github.com',
         localRepoPath: '.',
         cloneDepth: undefined,
-        localMode: true,
+        localWrite: true,
       });
 
       sinon.assert.calledOnce(fakeLocalGitHub.writeChangesToDisk);

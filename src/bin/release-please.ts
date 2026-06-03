@@ -59,7 +59,7 @@ interface GitHubArgs {
   local?: boolean;
   localPath?: string;
   localCloneDepth?: number;
-  localMode?: boolean;
+  localWrite?: boolean;
 
   // deprecated in favor of targetBranch
   defaultBranch?: string;
@@ -212,17 +212,17 @@ function gitHubOptions(yargs: yargs.Argv): yargs.Argv {
       describe: 'Depth of local clone. Defaults to the entire repo.',
       type: 'number',
     })
-    .option('local-mode', {
+    .option('local-write', {
       describe:
         'Write calculated release changes directly to the local repository instead of opening a pull request',
       type: 'boolean',
       default: false,
     })
     .middleware(_argv => {
-      const argv = _argv as GitHubArgs & { 'local-mode'?: boolean };
-      if (argv.localMode || argv['local-mode']) {
+      const argv = _argv as GitHubArgs & { 'local-write'?: boolean };
+      if (argv.localWrite || argv['local-write']) {
         argv.local = true;
-        argv.localMode = true;
+        argv.localWrite = true;
         if (!argv.localPath) {
           argv.localPath = '.';
         }
@@ -579,7 +579,7 @@ const createReleasePullRequestCommand: yargs.CommandModule<
           }
         }
       }
-    } else if (argv.localMode) {
+    } else if (argv.localWrite) {
       const pullRequests = await manifest.buildPullRequests();
       for (const pullRequest of pullRequests) {
         const changes = await github.buildChangeSet(
@@ -839,7 +839,7 @@ const bootstrapCommand: yargs.CommandModule<{}, BootstrapArgs> = {
           }
         }
       }
-    } else if (argv.localMode) {
+    } else if (argv.localWrite) {
       const pullRequest = await bootstrapper.buildPullRequest(
         path,
         releaserConfig
@@ -897,7 +897,7 @@ async function buildGitHub(argv: GitHubArgs): Promise<Scm> {
       graphqlUrl: argv.graphqlUrl,
       localRepoPath: argv.localPath,
       cloneDepth: argv.localCloneDepth,
-      localMode: argv.localMode,
+      localWrite: argv.localWrite,
     });
     return localGitHub;
   } else {

@@ -59,7 +59,7 @@ import {logger as defaultLogger} from './util/logger';
 export interface LocalGitHubCreateOptions extends GitHubCreateOptions {
   cloneDepth?: number;
   localRepoPath?: string;
-  localMode?: boolean;
+  localWrite?: boolean;
 }
 
 /**
@@ -116,7 +116,7 @@ export class LocalGitHub implements Scm {
         logger.info(`Using existing local repository at ${repoDir}...`);
       }
 
-      if (!options.localMode) {
+      if (!options.localWrite) {
         const branch = gitHubApi.repository.defaultBranch;
         const fetchArgs = ['fetch', 'origin'];
         if (options.cloneDepth) {
@@ -133,7 +133,7 @@ export class LocalGitHub implements Scm {
           cwd: repoDir,
         });
       } else {
-        logger.info('Running in local-mode. Skipping repository fetch and reset.');
+        logger.info('Running in local-write mode. Skipping repository fetch and reset.');
       }
     } else {
       const tempDir = await mkdtemp(path.join(os.tmpdir(), 'release-please-'));
